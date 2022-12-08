@@ -121,10 +121,27 @@ We can look at total amplitude (= the sum of all individual saccade amplitudes) 
 Generate this variable and use it as outcome variable in a mixed-effects model with task (Count vs Search) as predictor. Identify the most appropriate random effect structure.
 
 ```{r}
-Saccades %>% 
-  group_by(ParticipantID) %>% 
-  summarise(sum(Amplitude))
+SumSaccades <- Saccades %>% 
+  group_by(ParticipantID, Task, Trial) %>% 
+  summarise(SumAmp=sum(Amplitude))
 
+hist(SumSaccades$SumAmp)
+
+mGausSum <- lmer(SumAmp ~ Task + (1 + Trial | ParticipantID), data=SumSaccades)
+
+mGausSum1 <- lmer(SumAmp ~ Task + (1 + Trial:Task | ParticipantID), data=SumSaccades)
+
+mGausSum2 <- lmer(SumAmp ~ Task + (1 | ParticipantID), data=SumSaccades)
+
+
+
+anova(mGausSum, mGausSum1, mGausSum2)
+
+summary(mGausSum)
+
+summary(mGausSum1)
+
+summary(mGausSum2)
 ```
 
 ### Hypothesis 2a: Longer fixation duration in Count condition
@@ -135,8 +152,13 @@ Let's start by plotting fixation duration in the two conditions:
 
 ```{r}
 par(mfrow=c(1,2))
-plot(density(Fixations[Fixations$Task == "Search", ]$Duration), main = "Search", xlim = c(0, 1000))
-plot(density(Fixations[Fixations$Task == "Count", ]$Duration), main = "Count", xlim = c(0, 1000))
+plot(density(Fixations[Fixations$Task == "Searching", ]$Duration), main = "Search", xlim = c(0, 1000))
+plot(density(Fixations[Fixations$Task == "Counting", ]$Duration), main = "Count", xlim = c(0, 1000))
+
+Fixations %>% 
+  ggplot(aes(x=Duration, fill=Task)) +
+  geom_density(alpha = 0.5) +
+  xlim(0, 1000)
 ```
 
 What do the plots seem to show? Do they corroborate our hypothesis?
@@ -144,11 +166,25 @@ What do the plots seem to show? Do they corroborate our hypothesis?
 Let's test this statistically as well. We will take the same approach as above by running a Gaussian model first, and a Lognormal model afterward.
 
 ```{r}
-mGaus <- 
 
-mLog <- 
+Fixations <-  Fixations %>% 
+  filter(0 < Duration)
+
+mGaus <- lmer(Duration ~ Task + (1 + Trial | ParticipantID), data=Fixations)
+
+mLog <- glmer(Duration ~ Task + (1 + Trial | ParticipantID), family=gaussian( link="log"), data=Fixations)
+
+summary(mGaus)
+
+summary(mLog)
 
 anova(mGaus, mLog)
+
+library(effectsize)
+
+cohens_d(mGaus)
+
+
 ```
 
 Tip: If the fit is singular or the model doesn't converge, do a step-wise reduction of the random effect structure (random slopes first and random intercepts last if necessary).
